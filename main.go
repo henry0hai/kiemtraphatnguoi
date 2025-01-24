@@ -576,76 +576,68 @@ func parseCSGTHtml(htmlContent string) ([]*CsgtData, error) {
 	}
 
 	data := &CsgtData{}
+	isDataPopulated := false // Flag to track if any valid data is found
 
-	// 1) First, parse the rows with a label + value
-	//
-	// The relevant portion for these is:
-	//   <div class="form-group">
-	//       <div class="row">
-	//           <label class="control-label col-md-3 text-right">
-	//               <span>Biển kiểm soát:</span>
-	//           </label>
-	//           <div class="col-md-9">98E1-714.78</div>
-	//       </div>
-	//   </div>
-	//
-	// We'll look under #bodyPrint123 .form-group .row, grab the label text
-	// and the next .col-md-9 text, and switch on it.
-
+	// 1) Parse rows with a label and value
 	doc.Find("#bodyPrint123 .form-group .row").Each(func(i int, s *goquery.Selection) {
 		label := strings.TrimSpace(s.Find("label span").Text())
 		value := strings.TrimSpace(s.Find("div.col-md-9").Text())
 
+		// Skip if label or value is empty
+		if label == "" || value == "" {
+			return
+		}
+
 		switch label {
 		case "Biển kiểm soát:":
 			data.Plate = value
+			isDataPopulated = true
 		case "Màu biển:":
 			data.PlateColor = value
+			isDataPopulated = true
 		case "Loại phương tiện:":
 			data.VehicleType = value
+			isDataPopulated = true
 		case "Thời gian vi phạm:":
 			data.ViolationTime = value
+			isDataPopulated = true
 		case "Địa điểm vi phạm:":
 			data.ViolationPlace = value
+			isDataPopulated = true
 		case "Hành vi vi phạm:":
 			data.ViolationAction = value
+			isDataPopulated = true
 		case "Trạng thái:":
 			data.Status = value
+			isDataPopulated = true
 		case "Đơn vị phát hiện vi phạm:":
 			data.DetectedBy = value
-		case "Nơi giải quyết vụ việc:":
-			// The row is present, but the value might be empty if details come after
-			// We’ll parse subsequent lines separately below.
-			// In some csgt.vn pages, there's an empty <div class="col-md-9"></div>.
+			isDataPopulated = true
 		}
 	})
 
-	// 2) Now, parse the additional "form-group" blocks that do NOT have a .row,
-	//    since the example includes lines like:
-	//    <div class="form-group">1. Đội Cảnh sát giao thông, ...</div>
-	//    <div class="form-group">Địa chỉ: ...</div>
-	//    <div class="form-group">Số điện thoại liên hệ: 0911595121</div>
-	//    <div class="form-group">2. Đội Cảnh sát giao thông ... </div>
-	//    ...
-	// We can collect them into a slice or a single multiline string.
+	// 2) Parse additional free-text blocks without .row
 	var resolutionLines []string
-
 	doc.Find("#bodyPrint123 .form-group").Each(func(i int, sel *goquery.Selection) {
-		// If this .form-group does NOT have a nested .row, it’s probably a free-text line
 		if sel.Find(".row").Length() == 0 {
 			txt := strings.TrimSpace(sel.Text())
 			if txt != "" {
 				resolutionLines = append(resolutionLines, txt)
+				isDataPopulated = true
 			}
 		}
 	})
 
-	// Join them into one block, or parse them further if needed
+	// Join resolution lines if any
 	if len(resolutionLines) > 0 {
 		data.ResolutionLocation = strings.Join(resolutionLines, "\n")
 	}
 
-	// 3) Return as a slice with one element
-  //    (or potentially more than one if you had multiple “blocks” on one page)
-  return []*CsgtData{data}, nil
+	// 3) Return nil if no valid data was populated
+	if !isDataPopulated {
+		return nil, nil
+	}
+
+	// Return as a slice with one element
+	return []*CsgtData{data}, nil
 }

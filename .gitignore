@@ -27,5 +27,9 @@ kiemtraphatnguoi
 go.work
 go.work.sum
 
+# tar files
+*.tar
+*.tar.gz
+
 # env file
 .env
