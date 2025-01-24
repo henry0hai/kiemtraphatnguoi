@@ -49,16 +49,16 @@ Tham số:
 	•	bienso (bắt buộc): Biển số xe cần tra cứu.
 	•	loaixe (tùy chọn): Loại phương tiện (giá trị: xemay hoặc oto). Mặc định là oto.
 
+Tra cứu xe máy:
+
+```bash
+curl --location --request POST 'localhost:8080/checkplate?bienso=51P139039&loaixe=xemay'
+```
+
 Tra cứu ô tô (mặc định):
 
 ```bash
 curl --location --request POST 'localhost:8080/checkplate?bienso=36A-894.42'
-```
-
-Tra cứu xe máy:
-
-```bash
-curl --location --request POST 'localhost:8080/checkplate?bienso=59V239022&loaixe=xemay'
 ```
 
 Kết quả trả về (JSON):

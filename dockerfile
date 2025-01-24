@@ -1,40 +1,42 @@
-# Start with the official Go image for building
-FROM golang:1.20 as builder
+##
+# 1) Build Stage
+##
+FROM golang:1.20-bullseye AS builder
 
-# Set the working directory inside the container
+# Install dev libraries for building with Tesseract
+RUN apt-get update && apt-get install -y \
+    libleptonica-dev \
+    libtesseract-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Copy go.mod and go.sum files
+# Copy go.mod and go.sum for module dependency caching
 COPY go.mod go.sum ./
-
-# Download and cache Go modules
 RUN go mod download
 
-# Copy the source code into the container
+# Copy all source files
 COPY . .
 
-# Build the Go binary
-RUN go build -o main .
+# Build your Go binary, name it "kiemtraphatnguoi" (or "main")
+RUN go build -o kiemtraphatnguoi .
 
-# Create a smaller runtime image
+##
+# 2) Final / Runtime Stage
+##
 FROM debian:bullseye-slim
 
-# Set up necessary dependencies
+# Install the Tesseract runtime and CA certificates
 RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
-WORKDIR /app
+# Copy only our final binary from the builder stage
+COPY --from=builder /app/kiemtraphatnguoi /usr/local/bin/kiemtraphatnguoi
 
-# Copy the compiled binary from the builder
-COPY --from=builder /app/main .
-
-# Copy any additional resources if needed (e.g., config files, etc.)
-# COPY ./config ./config
-
-# Expose the port your app will run on
+# If your app listens on port 8080
 EXPOSE 8080
 
-# Set the binary as the entrypoint
-ENTRYPOINT ["./main"]
+# Use the compiled binary as the entrypoint
+ENTRYPOINT ["kiemtraphatnguoi"]
