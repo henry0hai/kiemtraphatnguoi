@@ -128,3 +128,7 @@ Kết quả trả về (JSON):
 - Cách khắc phục: Cần thực hiện nhiều lần request để nhận được captcha dễ giải mã hơn.
 
 > Ghi chú: Ảnh captcha được lưu trong thư mục captchaImageLogs để phục vụ kiểm tra và cải thiện hiệu quả OCR.
+
+## Frontend
+
+[kiemtraphatnguoi-ui](https://github.com/henry0hai/kiemtraphatnguoi-ui)
