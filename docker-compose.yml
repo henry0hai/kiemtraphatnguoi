@@ -1,0 +1,24 @@
+services:
+  server:
+    image: kiemtraphatnguoi
+    build:
+      context: .
+    ports:
+      - "8080:8080" # Expose backend for external access (optional)
+    restart: unless-stopped
+    networks:
+      - kiemtraphatnguoi-network # Use an internal network
+
+  frontend:
+    image: kiemtraphatnguoi-ui
+    build:
+      context: .
+    ports:
+      - "3000:3000" # Expose frontend for external access
+    restart: unless-stopped
+    networks:
+      - kiemtraphatnguoi-network # Use the same internal network
+
+networks:
+  kiemtraphatnguoi-network:
+    driver: bridge
