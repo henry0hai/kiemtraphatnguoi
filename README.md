@@ -52,8 +52,25 @@ Tham số:
 Tra cứu xe máy:
 
 ```bash
-curl --location --request POST 'localhost:8080/checkplate?bienso=51P139039&loaixe=xemay'
+curl --location --request POST 'localhost:8080/checkplate?bienso=98E1-714.78&loaixe=xemay'
 ```
+
+Kết quả trả về (JSON): parse từ HTML
+
+```json
+{
+    "plate": "98E1-714.78",
+    "plate_color": "Nền mầu trắng, chữ và số màu đen",
+    "vehicle_type": "Xe máy",
+    "violation_time": "14:52, 06/01/2025",
+    "violation_place": "Ngã 4 Trần Nguyên Hãn - Trần Quang Khải, Phường Thọ Xương, Thành phố Bắc Giang, Tỉnh Bắc Giang",
+    "violation_action": "16824.7.2.h.01.Không đội “mũ bảo hiểm cho người đi mô tô, xe máy” khi điều khiển xe tham gia giao thông trên đường bộ",
+    "status": "Chưa xử phạt",
+    "detected_by": "Đội Cảnh sát giao thông, Trật tự - Công an thành phố Bắc Giang - Tỉnh Bắc Giang",
+    "resolution_location": "1. Đội Cảnh sát giao thông, Trật tự - Công an thành phố Bắc Giang - Tỉnh Bắc Giang\nĐịa chỉ: số 384 đường Xương Giang, phường Ngô Quyền\nSố điện thoại liên hệ: 0911595121\n2. Đội Cảnh sát giao thông, Trật tự - Công an huyện Lục Ngạn - Tỉnh Bắc Giang\nĐịa chỉ: huyện Lục Ngạn"
+}
+```
+
 
 Tra cứu ô tô (mặc định):
 

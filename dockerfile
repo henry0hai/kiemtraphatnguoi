@@ -1,7 +1,7 @@
 ##
 # 1) Build Stage
 ##
-FROM golang:1.20-bullseye AS builder
+FROM golang:1.23-bullseye AS builder
 
 # Install dev libraries for building with Tesseract
 RUN apt-get update && apt-get install -y \

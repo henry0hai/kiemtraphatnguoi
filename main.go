@@ -18,11 +18,26 @@ import (
 
 	// For OCR (example library):
 	"github.com/otiai10/gosseract/v2"
+	"github.com/PuerkitoBio/goquery"
 )
 
 var (
 	ErrDataNotFound = errors.New("data not found")
 )
+
+type CsgtData struct {
+	Plate              string `json:"plate"`
+	PlateColor         string `json:"plate_color"`
+	VehicleType        string `json:"vehicle_type"`
+	ViolationTime      string `json:"violation_time"`
+	ViolationPlace     string `json:"violation_place"`
+	ViolationAction    string `json:"violation_action"`
+	Status             string `json:"status"`
+	DetectedBy         string `json:"detected_by"`
+	// For "Nơi giải quyết vụ việc," we might have multiple lines. You can
+	// store them as a single string or break them out further.
+	ResolutionLocation string `json:"resolution_location"`
+}
 
 func main() {
 	http.HandleFunc("/checkplate", checkPlateHandler)
@@ -268,62 +283,92 @@ func fetchDataCSGTWithSession(plate, vehicleType, captcha string, cookieJar http
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	if cookieJar != nil {
-		client.Jar = cookieJar
+			client.Jar = cookieJar
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBufferString(formData))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+			return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Go-http-client/1.1)")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("connection error: %w", err)
+			return nil, fmt.Errorf("connection error: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server returned status code: %d", resp.StatusCode)
+			return nil, fmt.Errorf("server returned status code: %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
+			return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	content := strings.TrimSpace(string(body))
-	log.Printf("Raw CSGT response: %s\n", content) // Log raw response for debugging
+	log.Printf("Raw CSGT response: %s\n", content)
 
-	// Handle special case for "404"
 	if content == "404" {
-		return nil, errors.New("csgt.vn: captcha incorrect or request rejected (404)")
+			return nil, errors.New("csgt.vn: captcha incorrect or request rejected (404)")
 	}
 
-	// Attempt to parse JSON response
+	// // Attempt to parse JSON response
 	var result map[string]interface{}
 	if err := json.Unmarshal([]byte(content), &result); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON: %v", err)
+			return nil, fmt.Errorf("failed to parse JSON: %v", err)
 	}
 
-	log.Printf("CSGT response: %v\n", result) // Log parsed JSON for debugging
+	log.Printf("CSGT response (JSON): %v\n", result)
 
-	// Check for "success" field or adjust expectations based on actual response
-	successVal, successExists := result["success"].(bool)
-	if !successExists {
-		// Log an unexpected structure
-		log.Printf("Unexpected JSON structure: missing 'success' field\n")
-		return result, nil // Return raw result for further inspection
+	// See if there's an href we can follow for the actual data:
+	hrefVal, ok := result["href"].(string)
+	if ok && hrefVal != "" {
+			// 1) Fetch that HTML page
+			htmlContent, err := fetchCSGTHtml(hrefVal, client)
+
+			// log.Println("CSGT full HTML:\n", htmlContent)
+
+			if err != nil {
+					return nil, fmt.Errorf("failed to fetch csgt HTML at %q: %w", hrefVal, err)
+			}
+
+			// 2) Parse the HTML
+			parsedData, err := parseCSGTHtml(htmlContent)
+			if err != nil {
+					return nil, fmt.Errorf("failed to parse csgt HTML from %q: %w", hrefVal, err)
+			}
+
+			log.Println("parseCSGTHtml HTML:\n", parsedData)
+
+			// 3) Return the structured data
+			return parsedData, nil
 	}
 
-	if !successVal {
-		return nil, errors.New("csgt.vn indicates failure (likely captcha or plate issue)")
-	}
-
+	// Otherwise, just return what we got
 	return result, nil
+}
+
+func fetchCSGTHtml(url string, client *http.Client) (string, error) {
+	resp, err := client.Get(url)
+	if err != nil {
+			return "", fmt.Errorf("GET %q failed: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+			return "", fmt.Errorf("csgt.vn returned non-200 status: %d", resp.StatusCode)
+	}
+
+	bytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+			return "", fmt.Errorf("failed to read body: %w", err)
+	}
+
+	return string(bytes), nil
 }
 
 // ------------------------------------------------------------------------
@@ -435,4 +480,88 @@ func writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 
 func writeJSONError(w http.ResponseWriter, statusCode int, errMsg string) {
 	writeJSON(w, statusCode, map[string]string{"error": errMsg})
+}
+
+
+// -----------------------------------------------------------------------
+// Parse HTML
+// -----------------------------------------------------------------------
+
+func parseCSGTHtml(htmlContent string) (*CsgtData, error) {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlContent))
+	if err != nil {
+			return nil, fmt.Errorf("failed to create goquery document: %w", err)
+	}
+
+	data := &CsgtData{}
+
+	// 1) First, parse the rows with a label + value
+	//
+	// The relevant portion for these is:
+	//   <div class="form-group">
+	//       <div class="row">
+	//           <label class="control-label col-md-3 text-right">
+	//               <span>Biển kiểm soát:</span>
+	//           </label>
+	//           <div class="col-md-9">98E1-714.78</div>
+	//       </div>
+	//   </div>
+	//
+	// We'll look under #bodyPrint123 .form-group .row, grab the label text
+	// and the next .col-md-9 text, and switch on it.
+
+	doc.Find("#bodyPrint123 .form-group .row").Each(func(i int, s *goquery.Selection) {
+			label := strings.TrimSpace(s.Find("label span").Text())
+			value := strings.TrimSpace(s.Find("div.col-md-9").Text())
+
+			switch label {
+			case "Biển kiểm soát:":
+					data.Plate = value
+			case "Màu biển:":
+					data.PlateColor = value
+			case "Loại phương tiện:":
+					data.VehicleType = value
+			case "Thời gian vi phạm:":
+					data.ViolationTime = value
+			case "Địa điểm vi phạm:":
+					data.ViolationPlace = value
+			case "Hành vi vi phạm:":
+					data.ViolationAction = value
+			case "Trạng thái:":
+					data.Status = value
+			case "Đơn vị phát hiện vi phạm:":
+					data.DetectedBy = value
+			case "Nơi giải quyết vụ việc:":
+					// The row is present, but the value might be empty if details come after
+					// We’ll parse subsequent lines separately below.
+					// In some csgt.vn pages, there's an empty <div class="col-md-9"></div>.
+			}
+	})
+
+	// 2) Now, parse the additional "form-group" blocks that do NOT have a .row,
+	//    since the example includes lines like:
+	//    <div class="form-group">1. Đội Cảnh sát giao thông, ...</div>
+	//    <div class="form-group">Địa chỉ: ...</div>
+	//    <div class="form-group">Số điện thoại liên hệ: 0911595121</div>
+	//    <div class="form-group">2. Đội Cảnh sát giao thông ... </div>
+	//    ...
+	// We can collect them into a slice or a single multiline string.
+	var resolutionLines []string
+
+	doc.Find("#bodyPrint123 .form-group").Each(func(i int, sel *goquery.Selection) {
+			// If this .form-group does NOT have a nested .row, it’s probably a free-text line
+			if sel.Find(".row").Length() == 0 {
+					txt := strings.TrimSpace(sel.Text())
+					if txt != "" {
+							resolutionLines = append(resolutionLines, txt)
+					}
+			}
+	})
+
+	// Join them into one block, or parse them further if needed
+	if len(resolutionLines) > 0 {
+			data.ResolutionLocation = strings.Join(resolutionLines, "\n")
+	}
+
+	return data, nil
 }
