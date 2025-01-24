@@ -425,7 +425,7 @@ func fetchDataCSGTWithSession(plate, vehicleType, captcha string, cookieJar http
 			return nil, fmt.Errorf("failed to parse csgt HTML from %q: %w", hrefVal, err)
 		}
 
-		log.Println("parseCSGTHtml HTML:\n", parsedData)
+		// log.Println("parseCSGTHtml HTML:\n", parsedData)
 
 		// 3) Return the structured data
 		return parsedData, nil
