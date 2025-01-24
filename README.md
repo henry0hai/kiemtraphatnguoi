@@ -88,8 +88,8 @@ Kết quả trả về (JSON):
 ### Lưu ý về giải captcha
 
 Ứng dụng sử dụng một thư viện OCR (e.g., gosseract) để giải mã captcha từ csgt.vn. Tuy nhiên:
-	•	Độ chính xác thấp: Kết quả giải mã captcha có thể không chính xác với hình ảnh phức tạp.
-	•	Cách khắc phục: Cần thực hiện nhiều lần request để nhận được captcha dễ giải mã hơn.
+•	Độ chính xác thấp: Kết quả giải mã captcha có thể không chính xác với hình ảnh phức tạp.
+•	Cách khắc phục: Cần thực hiện nhiều lần request để nhận được captcha dễ giải mã hơn.
 
 	Ghi chú: Ảnh captcha được lưu trong thư mục captchaImageLogs để phục vụ kiểm tra và cải thiện hiệu quả OCR.
 
