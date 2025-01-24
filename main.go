@@ -17,8 +17,8 @@ import (
 	"net/http/cookiejar"
 
 	// For OCR (example library):
-	"github.com/otiai10/gosseract/v2"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/otiai10/gosseract/v2"
 )
 
 var (
@@ -26,14 +26,14 @@ var (
 )
 
 type CsgtData struct {
-	Plate              string `json:"plate"`
-	PlateColor         string `json:"plate_color"`
-	VehicleType        string `json:"vehicle_type"`
-	ViolationTime      string `json:"violation_time"`
-	ViolationPlace     string `json:"violation_place"`
-	ViolationAction    string `json:"violation_action"`
-	Status             string `json:"status"`
-	DetectedBy         string `json:"detected_by"`
+	Plate           string `json:"plate"`
+	PlateColor      string `json:"plate_color"`
+	VehicleType     string `json:"vehicle_type"`
+	ViolationTime   string `json:"violation_time"`
+	ViolationPlace  string `json:"violation_place"`
+	ViolationAction string `json:"violation_action"`
+	Status          string `json:"status"`
+	DetectedBy      string `json:"detected_by"`
 	// For "Nơi giải quyết vụ việc," we might have multiple lines. You can
 	// store them as a single string or break them out further.
 	ResolutionLocation string `json:"resolution_location"`
@@ -222,16 +222,99 @@ func fetchDataPhatNguoi(bienso string) (interface{}, error) {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	var result map[string]interface{}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	// 1) Unmarshal to the wrapper
+	var w primaryWrapper
+	if err := json.Unmarshal(body, &w); err != nil {
+		return nil, fmt.Errorf("could not parse JSON from primary: %w", err)
 	}
 
-	data, found := result["data"]
-	if !found || data == nil {
+	// 2) If the wrapper "data" is empty => no records => return ErrDataNotFound
+	if len(w.Data) == 0 {
 		return nil, ErrDataNotFound
 	}
-	return data, nil
+
+	// 3) Convert each item in w.Data to your CsgtData
+	results := make([]*CsgtData, 0, len(w.Data))
+	for _, item := range w.Data {
+		results = append(results, parsePrimaryRecord(item))
+	}
+
+	// 4) Return the array of CsgtData
+	return results, nil
+}
+
+type primaryWrapper struct {
+	Status int                      `json:"status"`
+	Data   []map[string]interface{} `json:"data"`
+}
+
+func parsePrimaryDataWrapper(body []byte) ([]*CsgtData, error) {
+	var w primaryWrapper
+	if err := json.Unmarshal(body, &w); err != nil {
+		return nil, err
+	}
+
+	var results []*CsgtData
+	for _, item := range w.Data {
+		results = append(results, parsePrimaryRecord(item))
+	}
+	return results, nil
+}
+
+func parsePrimaryDataArray(body []byte) ([]*CsgtData, error) {
+	// The body is something like:
+	// [
+	//   {
+	//     "Biển kiểm soát": "...",
+	//     ...
+	//   }
+	// ]
+
+	var arr []map[string]interface{}
+	if err := json.Unmarshal(body, &arr); err != nil {
+		return nil, err
+	}
+
+	result := make([]*CsgtData, 0, len(arr))
+	for _, item := range arr {
+		result = append(result, parsePrimaryRecord(item))
+	}
+	return result, nil
+}
+
+func parsePrimaryRecord(item map[string]interface{}) *CsgtData {
+	data := &CsgtData{}
+
+	// Safely get a string from an interface{}
+	getString := func(k string) string {
+		v, ok := item[k]
+		if !ok || v == nil {
+			return ""
+		}
+		return fmt.Sprintf("%v", v)
+	}
+
+	data.Plate = getString("Biển kiểm soát")
+	data.PlateColor = getString("Màu biển")
+	data.VehicleType = getString("Loại phương tiện")
+	data.ViolationTime = getString("Thời gian vi phạm")
+	data.ViolationPlace = getString("Địa điểm vi phạm")
+	data.ViolationAction = getString("Hành vi vi phạm")
+	data.Status = getString("Trạng thái")
+	data.DetectedBy = getString("Đơn vị phát hiện vi phạm")
+
+	// For "Nơi giải quyết vụ việc" (array of strings), join with newlines:
+	if arrAny, ok := item["Nơi giải quyết vụ việc"]; ok && arrAny != nil {
+		if arr, ok := arrAny.([]interface{}); ok {
+			var lines []string
+			for _, lineAny := range arr {
+				lines = append(lines, fmt.Sprintf("%v", lineAny))
+			}
+			data.ResolutionLocation = strings.Join(lines, "\n")
+		}
+	}
+
+	return data
 }
 
 // ------------------------------------------------------------------------
@@ -283,12 +366,12 @@ func fetchDataCSGTWithSession(plate, vehicleType, captcha string, cookieJar http
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	if cookieJar != nil {
-			client.Jar = cookieJar
+		client.Jar = cookieJar
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBufferString(formData))
 	if err != nil {
-			return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
 	req.Header.Set("Accept", "*/*")
@@ -296,30 +379,30 @@ func fetchDataCSGTWithSession(plate, vehicleType, captcha string, cookieJar http
 
 	resp, err := client.Do(req)
 	if err != nil {
-			return nil, fmt.Errorf("connection error: %w", err)
+		return nil, fmt.Errorf("connection error: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("server returned status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("server returned status code: %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-			return nil, fmt.Errorf("failed to read response: %w", err)
+		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	content := strings.TrimSpace(string(body))
 	log.Printf("Raw CSGT response: %s\n", content)
 
 	if content == "404" {
-			return nil, errors.New("csgt.vn: captcha incorrect or request rejected (404)")
+		return nil, errors.New("csgt.vn: captcha incorrect or request rejected (404)")
 	}
 
 	// // Attempt to parse JSON response
 	var result map[string]interface{}
 	if err := json.Unmarshal([]byte(content), &result); err != nil {
-			return nil, fmt.Errorf("failed to parse JSON: %v", err)
+		return nil, fmt.Errorf("failed to parse JSON: %v", err)
 	}
 
 	log.Printf("CSGT response (JSON): %v\n", result)
@@ -327,25 +410,25 @@ func fetchDataCSGTWithSession(plate, vehicleType, captcha string, cookieJar http
 	// See if there's an href we can follow for the actual data:
 	hrefVal, ok := result["href"].(string)
 	if ok && hrefVal != "" {
-			// 1) Fetch that HTML page
-			htmlContent, err := fetchCSGTHtml(hrefVal, client)
+		// 1) Fetch that HTML page
+		htmlContent, err := fetchCSGTHtml(hrefVal, client)
 
-			// log.Println("CSGT full HTML:\n", htmlContent)
+		// log.Println("CSGT full HTML:\n", htmlContent)
 
-			if err != nil {
-					return nil, fmt.Errorf("failed to fetch csgt HTML at %q: %w", hrefVal, err)
-			}
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch csgt HTML at %q: %w", hrefVal, err)
+		}
 
-			// 2) Parse the HTML
-			parsedData, err := parseCSGTHtml(htmlContent)
-			if err != nil {
-					return nil, fmt.Errorf("failed to parse csgt HTML from %q: %w", hrefVal, err)
-			}
+		// 2) Parse the HTML
+		parsedData, err := parseCSGTHtml(htmlContent)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse csgt HTML from %q: %w", hrefVal, err)
+		}
 
-			log.Println("parseCSGTHtml HTML:\n", parsedData)
+		log.Println("parseCSGTHtml HTML:\n", parsedData)
 
-			// 3) Return the structured data
-			return parsedData, nil
+		// 3) Return the structured data
+		return parsedData, nil
 	}
 
 	// Otherwise, just return what we got
@@ -355,17 +438,17 @@ func fetchDataCSGTWithSession(plate, vehicleType, captcha string, cookieJar http
 func fetchCSGTHtml(url string, client *http.Client) (string, error) {
 	resp, err := client.Get(url)
 	if err != nil {
-			return "", fmt.Errorf("GET %q failed: %w", url, err)
+		return "", fmt.Errorf("GET %q failed: %w", url, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-			return "", fmt.Errorf("csgt.vn returned non-200 status: %d", resp.StatusCode)
+		return "", fmt.Errorf("csgt.vn returned non-200 status: %d", resp.StatusCode)
 	}
 
 	bytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-			return "", fmt.Errorf("failed to read body: %w", err)
+		return "", fmt.Errorf("failed to read body: %w", err)
 	}
 
 	return string(bytes), nil
@@ -482,15 +565,14 @@ func writeJSONError(w http.ResponseWriter, statusCode int, errMsg string) {
 	writeJSON(w, statusCode, map[string]string{"error": errMsg})
 }
 
-
 // -----------------------------------------------------------------------
 // Parse HTML
 // -----------------------------------------------------------------------
 
-func parseCSGTHtml(htmlContent string) (*CsgtData, error) {
+func parseCSGTHtml(htmlContent string) ([]*CsgtData, error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlContent))
 	if err != nil {
-			return nil, fmt.Errorf("failed to create goquery document: %w", err)
+		return nil, fmt.Errorf("failed to create goquery document: %w", err)
 	}
 
 	data := &CsgtData{}
@@ -511,31 +593,31 @@ func parseCSGTHtml(htmlContent string) (*CsgtData, error) {
 	// and the next .col-md-9 text, and switch on it.
 
 	doc.Find("#bodyPrint123 .form-group .row").Each(func(i int, s *goquery.Selection) {
-			label := strings.TrimSpace(s.Find("label span").Text())
-			value := strings.TrimSpace(s.Find("div.col-md-9").Text())
+		label := strings.TrimSpace(s.Find("label span").Text())
+		value := strings.TrimSpace(s.Find("div.col-md-9").Text())
 
-			switch label {
-			case "Biển kiểm soát:":
-					data.Plate = value
-			case "Màu biển:":
-					data.PlateColor = value
-			case "Loại phương tiện:":
-					data.VehicleType = value
-			case "Thời gian vi phạm:":
-					data.ViolationTime = value
-			case "Địa điểm vi phạm:":
-					data.ViolationPlace = value
-			case "Hành vi vi phạm:":
-					data.ViolationAction = value
-			case "Trạng thái:":
-					data.Status = value
-			case "Đơn vị phát hiện vi phạm:":
-					data.DetectedBy = value
-			case "Nơi giải quyết vụ việc:":
-					// The row is present, but the value might be empty if details come after
-					// We’ll parse subsequent lines separately below.
-					// In some csgt.vn pages, there's an empty <div class="col-md-9"></div>.
-			}
+		switch label {
+		case "Biển kiểm soát:":
+			data.Plate = value
+		case "Màu biển:":
+			data.PlateColor = value
+		case "Loại phương tiện:":
+			data.VehicleType = value
+		case "Thời gian vi phạm:":
+			data.ViolationTime = value
+		case "Địa điểm vi phạm:":
+			data.ViolationPlace = value
+		case "Hành vi vi phạm:":
+			data.ViolationAction = value
+		case "Trạng thái:":
+			data.Status = value
+		case "Đơn vị phát hiện vi phạm:":
+			data.DetectedBy = value
+		case "Nơi giải quyết vụ việc:":
+			// The row is present, but the value might be empty if details come after
+			// We’ll parse subsequent lines separately below.
+			// In some csgt.vn pages, there's an empty <div class="col-md-9"></div>.
+		}
 	})
 
 	// 2) Now, parse the additional "form-group" blocks that do NOT have a .row,
@@ -549,19 +631,21 @@ func parseCSGTHtml(htmlContent string) (*CsgtData, error) {
 	var resolutionLines []string
 
 	doc.Find("#bodyPrint123 .form-group").Each(func(i int, sel *goquery.Selection) {
-			// If this .form-group does NOT have a nested .row, it’s probably a free-text line
-			if sel.Find(".row").Length() == 0 {
-					txt := strings.TrimSpace(sel.Text())
-					if txt != "" {
-							resolutionLines = append(resolutionLines, txt)
-					}
+		// If this .form-group does NOT have a nested .row, it’s probably a free-text line
+		if sel.Find(".row").Length() == 0 {
+			txt := strings.TrimSpace(sel.Text())
+			if txt != "" {
+				resolutionLines = append(resolutionLines, txt)
 			}
+		}
 	})
 
 	// Join them into one block, or parse them further if needed
 	if len(resolutionLines) > 0 {
-			data.ResolutionLocation = strings.Join(resolutionLines, "\n")
+		data.ResolutionLocation = strings.Join(resolutionLines, "\n")
 	}
 
-	return data, nil
+	// 3) Return as a slice with one element
+  //    (or potentially more than one if you had multiple “blocks” on one page)
+  return []*CsgtData{data}, nil
 }

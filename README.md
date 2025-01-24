@@ -58,7 +58,8 @@ curl --location --request POST 'localhost:8080/checkplate?bienso=98E1-714.78&loa
 Kết quả trả về (JSON): parse từ HTML
 
 ```json
-{
+[
+  {
     "plate": "98E1-714.78",
     "plate_color": "Nền mầu trắng, chữ và số màu đen",
     "vehicle_type": "Xe máy",
@@ -68,14 +69,15 @@ Kết quả trả về (JSON): parse từ HTML
     "status": "Chưa xử phạt",
     "detected_by": "Đội Cảnh sát giao thông, Trật tự - Công an thành phố Bắc Giang - Tỉnh Bắc Giang",
     "resolution_location": "1. Đội Cảnh sát giao thông, Trật tự - Công an thành phố Bắc Giang - Tỉnh Bắc Giang\nĐịa chỉ: số 384 đường Xương Giang, phường Ngô Quyền\nSố điện thoại liên hệ: 0911595121\n2. Đội Cảnh sát giao thông, Trật tự - Công an huyện Lục Ngạn - Tỉnh Bắc Giang\nĐịa chỉ: huyện Lục Ngạn"
-}
+  }
+]
 ```
 
 
 Tra cứu ô tô (mặc định):
 
 ```bash
-curl --location --request POST 'localhost:8080/checkplate?bienso=36A-894.42'
+curl --location --request POST 'localhost:8080/checkplate?bienso=98A-290.11'
 ```
 
 Kết quả trả về (JSON):
@@ -83,21 +85,37 @@ Kết quả trả về (JSON):
 ```json
 [
   {
-    "Biển kiểm soát": "36A-894.42",
-    "Hành vi vi phạm": "12321.5.5.i.01.Điều khiển xe chạy quá tốc độ quy định từ 10 km/h đến 20 km/h",
-    "Loại phương tiện": "Ô tô",
-    "Màu biển": "Nền mầu trắng, chữ và số màu đen",
-    "Nơi giải quyết vụ việc": [
-      "1. Tỉnh Thanh Hóa",
-      "Địa chỉ: Phía bắc, đường tránh Quốc Lộ 1A, Phường Đông Thọ, TP Thanh Hóa",
-      "Số điện thoại liên hệ: 02373.853085",
-      "2. Đội Cảnh sát giao thông, Trật tự - Công an thành phố Thanh Hóa - Tỉnh Thanh Hóa",
-      "Địa chỉ: TP Thanh Hóa"
-    ],
-    "Thời gian vi phạm": "10:32, 20/12/2024",
-    "Trạng thái": "Chưa xử phạt",
-    "Đơn vị phát hiện vi phạm": "Tỉnh Thanh Hóa",
-    "Địa điểm vi phạm": "Km 64+600, Quốc lộ 45 Địa bàn Tỉnh Thanh Hóa"
+    "plate": "98A-290.11",
+    "plate_color": "Nền mầu trắng, chữ và số màu đen",
+    "vehicle_type": "Ô tô",
+    "violation_time": "15:03, 06/01/2025",
+    "violation_place": "Đường Nguyễn Thị Minh Khai, Phường Xương Giang, Thành phố Bắc Giang, Tỉnh Bắc Giang",
+    "violation_action": "16824.6.1.a.04.Không chấp hành hiệu lệnh, chỉ dẫn của vạch kẻ đường",
+    "status": "Chưa xử phạt",
+    "detected_by": "Đội Cảnh sát giao thông, Trật tự - Công an thành phố Bắc Giang - Tỉnh Bắc Giang",
+    "resolution_location": "1. Đội Cảnh sát giao thông, Trật tự - Công an thành phố Bắc Giang - Tỉnh Bắc Giang\nĐịa chỉ: số 384 đường Xương Giang, phường Ngô Quyền\nSố điện thoại liên hệ: 0911595121"
+  },
+  {
+    "plate": "98A-290.11",
+    "plate_color": "Nền mầu trắng, chữ và số màu đen",
+    "vehicle_type": "Ô tô",
+    "violation_time": "11:38, 15/08/2024",
+    "violation_place": "Ngã 4 Xương Giang - Vương Văn Trà - Quang Trung, Phường Trần Phú, Thành phố Bắc Giang, Tỉnh Bắc Giang",
+    "violation_action": "12321.5.3.k.06.Điều khiển xe rẽ trái tại nơi có biển báo hiệu có nội dung cấm rẽ trái đối với loại phương tiện đang điều khiển",
+    "status": "Chưa xử phạt",
+    "detected_by": "Đội Cảnh sát giao thông, Trật tự - Công an thành phố Bắc Giang - Tỉnh Bắc Giang",
+    "resolution_location": "1. Đội Cảnh sát giao thông, Trật tự - Công an thành phố Bắc Giang - Tỉnh Bắc Giang\nĐịa chỉ: số 384 đường Xương Giang, phường Ngô Quyền\nSố điện thoại liên hệ: 0911595121"
+  },
+  {
+    "plate": "98A-290.11",
+    "plate_color": "Nền mầu trắng, chữ và số màu đen",
+    "vehicle_type": "Ô tô",
+    "violation_time": "14:44, 16/10/2023",
+    "violation_place": "Ngã 4 Trần Nguyên Hãn - Trần Quang Khải, Phường Thọ Xương, Thành phố Bắc Giang, Tỉnh Bắc Giang",
+    "violation_action": "12321.5.5.a.01.Không chấp hành hiệu lệnh của đèn tín hiệu giao thông",
+    "status": "Chưa xử phạt",
+    "detected_by": "Đội Cảnh sát giao thông, Trật tự - Công an thành phố Bắc Giang - Tỉnh Bắc Giang",
+    "resolution_location": "1. Đội Cảnh sát giao thông, Trật tự - Công an thành phố Bắc Giang - Tỉnh Bắc Giang\nĐịa chỉ: số 384 đường Xương Giang, phường Ngô Quyền\nSố điện thoại liên hệ: 0911595121"
   }
 ]
 ```
