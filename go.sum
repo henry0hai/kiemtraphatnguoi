@@ -1,0 +1,4 @@
+github.com/capsolver/capsolver-go v0.0.0-20241119090425-3bd68095f5c1 h1:FBFHj/uFbtDu1oXngYEA1wIBoJWQKN8wSfWNna7bzq0=
+github.com/capsolver/capsolver-go v0.0.0-20241119090425-3bd68095f5c1/go.mod h1:auD5FFe3cKFAtiRmeD8I8Bf1Og/NAlnmJqtbjOb6qPM=
+github.com/otiai10/gosseract/v2 v2.4.1 h1:G8AyBpXEeSlcq8TI85LH/pM5SXk8Djy2GEXisgyblRw=
+github.com/otiai10/gosseract/v2 v2.4.1/go.mod h1:1gNWP4Hgr2o7yqWfs6r5bZxAatjOIdqWxJLWsTsembk=
