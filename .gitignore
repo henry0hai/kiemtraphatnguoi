@@ -11,6 +11,9 @@
 # Ignore captchaImageLogs folder
 captchaImageLogs/
 
+# Ignore build file
+kiemtraphatnguoi
+
 # Test binary, built with `go test -c`
 *.test
 
