@@ -139,6 +139,6 @@ Kết quả trả về (JSON):
 
 ## Sample Demo (will be unvalidated after a day)
 
-[demo](https://e38a-2001-ee0-d789-ac50-1cf4-4e8c-8a48-aaf8.ngrok-free.app/)
+[demo](https://a12e-2001-ee0-d789-ac50-1cf4-4e8c-8a48-aaf8.ngrok-free.app/)
 
 > Remember to retrieve if the response is invalid, until some empty response is appearied.
